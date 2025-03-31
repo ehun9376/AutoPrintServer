@@ -17,19 +17,43 @@ bucket = storage.bucket()
 def print_file(file_path):
     """使用 airprint 指令列印檔案"""
     try:
+        # 檢查檔案是否存在
+        if not os.path.exists(file_path):
+            print(f"錯誤：檔案不存在 - {file_path}")
+            return False
+            
         # 先列出可用的印表機
         print("正在查詢可用的印表機...")
-        subprocess.run("lpstat -p", shell=True)
-        
+        result = subprocess.run("lpstat -p", shell=True, capture_output=True, text=True)
+        if result.stdout:
+            print("可用的印表機列表：")
+            print(result.stdout)
+        else:
+            print("警告：未找到任何印表機")
+            
         # 使用指定的印表機名稱，或使用預設印表機
         printer_name = "您的印表機名稱"  # 請替換成您的印表機名稱
         command = f"lp -d {printer_name} {file_path}"
         
         print(f"執行列印指令: {command}")
-        # subprocess.run(command, shell=True, check=True)
-        # print(f"檔案已送印: {file_path}")
+        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        
+        # 檢查列印結果
+        if result.returncode == 0:
+            print(f"列印成功！")
+            print(f"列印工作詳情: {result.stdout}")
+            return True
+        else:
+            print(f"列印失敗！錯誤訊息: {result.stderr}")
+            return False
+            
     except subprocess.CalledProcessError as e:
-        print(f"列印失敗: {e}")
+        print(f"列印過程發生錯誤: {e}")
+        print(f"錯誤詳情: {e.stderr}")
+        return False
+    except Exception as e:
+        print(f"發生未預期的錯誤: {e}")
+        return False
 
 def list_files():
     """列出當前 storage 中的所有檔案"""
@@ -59,7 +83,10 @@ def monitor_storage():
                     print(f"檔案已下載至: {download_path}")
                     
                     # 列印檔案
-                    print_file(download_path)
+                    if print_file(download_path):
+                        print("檔案處理完成：成功下載並列印")
+                    else:
+                        print("檔案處理失敗：列印過程出現問題")
             
             previous_files = current_files
             time.sleep(10)  # 每10秒檢查一次
