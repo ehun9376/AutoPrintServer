@@ -1,0 +1,5 @@
+# 忽略 downloads/photos 目錄中的所有檔案
+downloads/photos/*
+
+# 但保留 downloads/photos 目錄本身
+!downloads/photos/.gitkeep 
