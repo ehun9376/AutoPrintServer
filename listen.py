@@ -5,6 +5,7 @@ from datetime import datetime
 import os
 import subprocess
 from PIL import Image
+import matplotlib.pyplot as plt
 
 def process_image(input_path, output_path):
     """處理圖片，調整為 6.8cm × 9.5cm"""
@@ -81,6 +82,21 @@ def process_image(input_path, output_path):
         traceback.print_exc()
         return False
 
+def preview_image(image_path):
+    """使用 matplotlib 顯示圖片預覽"""
+    try:
+        # 開啟圖片
+        img = Image.open(image_path)
+        
+        # 顯示圖片
+        plt.imshow(img)
+        plt.axis('off')  # 隱藏座標軸
+        plt.title("圖片預覽")
+        plt.show()
+        
+    except Exception as e:
+        print(f"預覽圖片時發生錯誤: {e}")
+
 def print_file(file_path):
     """使用 airprint 指令列印檔案"""
     try:
@@ -95,7 +111,10 @@ def print_file(file_path):
         if not process_image(file_path, processed_path):
             print("圖片處理失敗")
             return False
-            
+        
+        # 預覽圖片（不阻塞）
+        preview_image(processed_path)
+        
         print("正在查詢可用的印表機...")
         result = subprocess.run("lpstat -p", shell=True, capture_output=True, text=True)
         if result.stdout:
@@ -104,7 +123,7 @@ def print_file(file_path):
         else:
             print("警告：未找到任何印表機")
             
-        printer_name = "EPSON_L3550_Series"
+        printer_name = "EPSON_L3550_Series"  # 請替換成您的印表機名稱
         
         # 設定列印參數
         command = (f"lp -d {printer_name} "
@@ -114,6 +133,7 @@ def print_file(file_path):
                   f"-o MediaType=photographic-glossy "
                   f"-o cupsPrintQuality=High "
                   f"-o fit-to-page "
+                  f"-o resolution=1200dpi "  # 使用高解析度
                   f"{processed_path}")
         
         print(f"執行列印指令: {command}")
