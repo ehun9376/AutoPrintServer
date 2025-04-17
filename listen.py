@@ -5,7 +5,6 @@ from datetime import datetime
 import os
 import subprocess
 from PIL import Image
-import matplotlib.pyplot as plt
 
 def process_image(input_path, output_path):
     """處理圖片，調整為 6.8cm × 9.5cm"""
@@ -34,9 +33,13 @@ def process_image(input_path, output_path):
         
         # 處理圖片
         with Image.open(input_path) as img:
-            # 確保圖片為 RGB 模式
-            if img.mode != 'RGB':
-                img = img.convert('RGB')
+            # 如果是 RGBA 模式，轉換為 RGB 並保留透明度
+            if img.mode == 'RGBA':
+                # 創建白色背景
+                background = Image.new('RGB', img.size, 'white')
+                # 將 RGBA 圖片貼到白色背景上
+                background.paste(img, mask=img.split()[3])
+                img = background
             
             # 計算縮放比例（保持原始圖片比例）
             img_ratio = img.width / img.height
@@ -52,7 +55,7 @@ def process_image(input_path, output_path):
                 new_width = int(target_height * img_ratio)
             
             # 調整圖片大小
-            resized_img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            resized_img = img.resize((new_width, new_height), Image.LANCZOS)
             
             # 創建新的白色背景圖片（完整紙張大小）
             new_img = Image.new('RGB', (paper_width_px, paper_height_px), 'white')
@@ -71,9 +74,15 @@ def process_image(input_path, output_path):
             print(f"邊距: 寬 {margin_width:.1f}mm, 高 {margin_height:.1f}mm")
             
             # 保存處理後的圖片
-            new_img.save(output_path, quality=95, dpi=(dpi, dpi))
+            new_img.save(output_path, dpi=(dpi, dpi))
+
+            final_output_path = os.path.join("completed", output_path)
+            os.makedirs(os.path.dirname(final_output_path), exist_ok=True)
+            os.rename(output_path, final_output_path)
+            os.remove(input_path)
             
-        print(f"圖片處理完成：{output_path}")
+            
+            print(f"圖片處理完成：{final_output_path}")
         return True
         
     except Exception as e:
@@ -81,21 +90,6 @@ def process_image(input_path, output_path):
         import traceback
         traceback.print_exc()
         return False
-
-def preview_image(image_path):
-    """使用 matplotlib 顯示圖片預覽"""
-    try:
-        # 開啟圖片
-        img = Image.open(image_path)
-        
-        # 顯示圖片
-        plt.imshow(img)
-        plt.axis('off')  # 隱藏座標軸
-        plt.title("圖片預覽")
-        plt.show()
-        
-    except Exception as e:
-        print(f"預覽圖片時發生錯誤: {e}")
 
 def print_file(file_path):
     """使用 airprint 指令列印檔案"""
@@ -111,10 +105,7 @@ def print_file(file_path):
         if not process_image(file_path, processed_path):
             print("圖片處理失敗")
             return False
-        
-        # 預覽圖片（不阻塞）
-        preview_image(processed_path)
-        
+            
         print("正在查詢可用的印表機...")
         result = subprocess.run("lpstat -p", shell=True, capture_output=True, text=True)
         if result.stdout:
@@ -123,17 +114,21 @@ def print_file(file_path):
         else:
             print("警告：未找到任何印表機")
             
-        printer_name = "EPSON_L3550_Series"  # 請替換成您的印表機名稱
+        printer_name = "EPSON_L3550_Series"
+        
+        # 顯示圖片預覽
+        try:
+            preview_img = Image.open(processed_path)
+            preview_img.show(title="列印預覽")
+            print("已顯示列印預覽，請確認後繼續...")
+        except Exception as e:
+            print(f"顯示預覽時發生錯誤: {e}")
         
         # 設定列印參數
         command = (f"lp -d {printer_name} "
-                  f"-o media=Custom.73x100mm "  # 7.3cm x 10cm
-                  f"-o ColorModel=RGB "
-                  f"-o print-color-mode=color "
-                  f"-o MediaType=photographic-glossy "
+                  f"-o media=Custom.70x100mm " 
                   f"-o cupsPrintQuality=High "
                   f"-o fit-to-page "
-                  f"-o resolution=1200dpi "  # 使用高解析度
                   f"{processed_path}")
         
         print(f"執行列印指令: {command}")
