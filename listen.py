@@ -7,7 +7,7 @@ import subprocess
 from PIL import Image
 
 def process_image(input_path, output_path):
-    """處理圖片，調整為 6.8cm × 9.5cm"""
+    
     try:
         dpi = 300
         width_inch = 4
@@ -19,15 +19,25 @@ def process_image(input_path, output_path):
                 background = Image.new('RGB', img.size, 'white')
                 background.paste(img, mask=img.split()[3])
                 img = background
-            # 直接輸出，不做縮放
-            # 若尺寸不符，僅裁切中央區域
-            if img.width != target_width or img.height != target_height:
-                left = (img.width - target_width) // 2 if img.width > target_width else 0
-                top = (img.height - target_height) // 2 if img.height > target_height else 0
-                right = left + target_width
-                bottom = top + target_height
-                img = img.crop((left, top, right, bottom))
-            img.save(output_path, dpi=(dpi, dpi))
+            # 計算縮放比例，保留全部內容
+            img_ratio = img.width / img.height
+            target_ratio = target_width / target_height
+            if img_ratio > target_ratio:
+                # 圖片較寬，以高度為基準縮放
+                new_height = target_height
+                new_width = int(img_ratio * new_height)
+            else:
+                # 圖片較高，以寬度為基準縮放
+                new_width = target_width
+                new_height = int(new_width / img_ratio)
+            resized_img = img.resize((new_width, new_height), Image.LANCZOS)
+            # 建立白色背景
+            new_img = Image.new('RGB', (target_width, target_height), 'white')
+            # 計算貼圖位置（置中）
+            x = (target_width - new_width) // 2
+            y = (target_height - new_height) // 2
+            new_img.paste(resized_img, (x, y))
+            new_img.save(output_path, dpi=(dpi, dpi))
             final_output_path = os.path.join("completed", output_path)
             os.makedirs(os.path.dirname(final_output_path), exist_ok=True)
             os.rename(output_path, final_output_path)
