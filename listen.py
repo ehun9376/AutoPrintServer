@@ -9,79 +9,29 @@ from PIL import Image
 def process_image(input_path, output_path):
     """處理圖片，調整為 6.8cm × 9.5cm"""
     try:
-        # 目標紙張大小（毫米）
-        paper_width = 73   # 7.3cm
-        paper_height = 100  # 10cm
-        
-        # 目標圖片大小（毫米）
-        image_width = 68   # 6.8cm
-        image_height = 95  # 9.5cm
-        
-        # 計算邊距（居中）
-        margin_width = (paper_width - image_width) / 2   # 約 0.25cm
-        margin_height = (paper_height - image_height) / 2  # 約 0.25cm
-        
-        # 轉換為像素（使用 300 DPI 以獲得高品質輸出）
         dpi = 300
-        pixels_per_mm = dpi / 25.4  # 1英寸 = 25.4mm
-        
-        # 計算像素尺寸
-        target_width = int(image_width * pixels_per_mm)   # 圖片目標寬度（像素）
-        target_height = int(image_height * pixels_per_mm)  # 圖片目標高度（像素）
-        paper_width_px = int(paper_width * pixels_per_mm)  # 紙張寬度（像素）
-        paper_height_px = int(paper_height * pixels_per_mm)  # 紙張高度（像素）
-        
-        # 處理圖片
+        width_inch = 4
+        height_inch = 6
+        target_width = int(width_inch * dpi)
+        target_height = int(height_inch * dpi)
         with Image.open(input_path) as img:
-            # 如果是 RGBA 模式，轉換為 RGB 並保留透明度
             if img.mode == 'RGBA':
-                # 創建白色背景
                 background = Image.new('RGB', img.size, 'white')
-                # 將 RGBA 圖片貼到白色背景上
                 background.paste(img, mask=img.split()[3])
                 img = background
-            
-            # 計算縮放比例（保持原始圖片比例）
-            img_ratio = img.width / img.height
-            target_ratio = target_width / target_height
-            
-            if img_ratio > target_ratio:
-                # 圖片較寬，以寬度為基準
-                new_width = target_width
-                new_height = int(target_width / img_ratio)
-            else:
-                # 圖片較高，以高度為基準
-                new_height = target_height
-                new_width = int(target_height * img_ratio)
-            
-            # 調整圖片大小
-            resized_img = img.resize((new_width, new_height), Image.LANCZOS)
-            
-            # 創建新的白色背景圖片（完整紙張大小）
-            new_img = Image.new('RGB', (paper_width_px, paper_height_px), 'white')
-            
-            # 計算居中位置
-            x = (paper_width_px - new_width) // 2
-            y = (paper_height_px - new_height) // 2
-            
-            # 將調整後的圖片貼到白色背景上
-            new_img.paste(resized_img, (x, y))
-            
-            print(f"原始圖片尺寸: {img.width}x{img.height} 像素")
-            print(f"調整後尺寸: {new_width}x{new_height} 像素")
-            print(f"目標圖片尺寸: {image_width}x{image_height} 毫米 ({target_width}x{target_height} 像素)")
-            print(f"紙張尺寸: {paper_width}x{paper_height} 毫米 ({paper_width_px}x{paper_height_px} 像素)")
-            print(f"邊距: 寬 {margin_width:.1f}mm, 高 {margin_height:.1f}mm")
-            
-            # 保存處理後的圖片
-            new_img.save(output_path, dpi=(dpi, dpi))
-
+            # 直接輸出，不做縮放
+            # 若尺寸不符，僅裁切中央區域
+            if img.width != target_width or img.height != target_height:
+                left = (img.width - target_width) // 2 if img.width > target_width else 0
+                top = (img.height - target_height) // 2 if img.height > target_height else 0
+                right = left + target_width
+                bottom = top + target_height
+                img = img.crop((left, top, right, bottom))
+            img.save(output_path, dpi=(dpi, dpi))
             final_output_path = os.path.join("completed", output_path)
             os.makedirs(os.path.dirname(final_output_path), exist_ok=True)
             os.rename(output_path, final_output_path)
             os.remove(input_path)
-            
-            
             print(f"圖片處理完成：{final_output_path}")
         return True
         
@@ -100,12 +50,19 @@ def print_file(file_path):
             
         # 創建臨時文件用於處理後的圖片
         processed_path = f"{file_path}_processed.jpg"
-        
         # 處理圖片
         if not process_image(file_path, processed_path):
             print("圖片處理失敗")
             return False
-            
+        # 取得最終檔案路徑（completed/）
+        final_output_path = os.path.join("completed", processed_path)
+        try:
+            preview_img = Image.open(final_output_path)
+            preview_img.show(title="列印預覽（處理後）")
+            print("已顯示處理後預覽，請確認後繼續...")
+        except Exception as e:
+            print(f"顯示處理後預覽時發生錯誤: {e}")
+
         print("正在查詢可用的印表機...")
         result = subprocess.run("lpstat -p", shell=True, capture_output=True, text=True)
         if result.stdout:
@@ -113,33 +70,21 @@ def print_file(file_path):
             print(result.stdout)
         else:
             print("警告：未找到任何印表機")
-            
+
+            #TODO: - 接新的印表機
         printer_name = "EPSON_L3550_Series"
-        
-        # 顯示圖片預覽
-        try:
-            preview_img = Image.open(processed_path)
-            preview_img.show(title="列印預覽")
-            print("已顯示列印預覽，請確認後繼續...")
-        except Exception as e:
-            print(f"顯示預覽時發生錯誤: {e}")
-        
         # 設定列印參數
         command = (f"lp -d {printer_name} "
-                  f"-o media=Custom.70x100mm " 
                   f"-o cupsPrintQuality=High "
                   f"-o fit-to-page "
-                  f"{processed_path}")
-        
+                  f"{final_output_path}")
         print(f"執行列印指令: {command}")
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
-        
-        # 刪除臨時文件
+        # 刪除臨時文件（已移動到 completed/）
         try:
-            os.remove(processed_path)
+            os.remove(final_output_path)
         except:
             pass
-        
         if result.returncode == 0:
             print(f"列印成功！")
             print(f"列印工作詳情: {result.stdout}")
@@ -182,6 +127,7 @@ def monitor_storage():
                     os.makedirs(os.path.dirname(download_path), exist_ok=True)
                     blob.download_to_filename(download_path)
                     print(f"檔案已下載至: {download_path}")
+
                     
                     # 列印檔案
                     if print_file(download_path):
@@ -198,7 +144,7 @@ def monitor_storage():
 
 if __name__ == "__main__":
     # 初始化 Firebase Admin SDK
-    cred = credentials.Certificate("autoprint-e192b-firebase-adminsdk-fbsvc-302c4ca40c.json")
+    cred = credentials.Certificate("autoprint-e192b-038b6a5219dc.json")
     firebase_admin.initialize_app(cred, {
         'storageBucket': 'autoprint-e192b.firebasestorage.app'
     })
