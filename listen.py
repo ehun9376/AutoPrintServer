@@ -67,8 +67,8 @@ def print_file(file_path):
         # 取得最終檔案路徑（completed/）
         final_output_path = os.path.join("completed", processed_path)
         try:
-            preview_img = Image.open(final_output_path)
-            preview_img.show(title="列印預覽（處理後）")
+            # preview_img = Image.open(final_output_path)
+            # preview_img.show(title="列印預覽（處理後）")
             print("已顯示處理後預覽，請確認後繼續...")
         except Exception as e:
             print(f"顯示處理後預覽時發生錯誤: {e}")
