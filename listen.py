@@ -82,7 +82,7 @@ def print_file(file_path):
             print("警告：未找到任何印表機")
 
             #TODO: - 接新的印表機
-        printer_name = "EPSON_L3550_Series"
+        printer_name = "Canon_SELPHY_CP1500"
         # 設定列印參數
         command = (f"lp -d {printer_name} "
                   f"-o cupsPrintQuality=High "
